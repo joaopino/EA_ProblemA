@@ -1,11 +1,20 @@
 #include <iostream>
 #include <vector>
+#include <queue>
+#include <unordered_set>
+
+
 
 using namespace std;
 
+// Definição de estado da matriz
+struct State {
+    vector<vector <int> > grid;
+    int moves; // Número de movimentos realizados até o estado atual
+};
 
-bool printGrid(const vector<vector<int> >& grid, int R, int C, int N_grid);
-
+bool printGrid(vector<vector<int> > grid, int R, int C, int N_grid);
+int solve(const vector<vector <int> >& initialGrid, int R, int C, int M);
 
 int main() {
     string N_testcases;
@@ -26,34 +35,51 @@ int main() {
         vector< vector<int> > grid(R, vector<int>(C));
         for (int i = 0; i < R; ++i) {
             for (int j = 0; j < C; ++j) {
-                // Using scanf for faster input
-                scanf("%d", &grid[i][j]);
+                cin >> grid[i][j];
             }
         }
-        //print grid just to debug
-        printGrid(grid,R,C,i);
+        
+        int moves = solve(grid,R,C,M);
+        
+        if (moves == -1){
+            cout << "the treasure is lost!\n";
+        }
+        else{
+            cout << moves << "\n";
+        }
+
     }
 };
 
-void RotateRight(const vector<vector<int> >& grid){
-    
+vector<vector<int> > rigth_rotation(vector<vector<int> > grid,int x_pos_first,int y_pos_first){
+    swap(grid[x_pos_first][y_pos_first], grid[x_pos_first][y_pos_first+1]);
+    swap(grid[x_pos_first][y_pos_first], grid[x_pos_first+ 1][y_pos_first+ 1]);
+    swap(grid[x_pos_first][y_pos_first], grid[x_pos_first + 1][y_pos_first]);
+
+    return grid;
 }
 
-// temos de ter uma lista com os numero pertencentes da matriz  
-bool isCorrectPosition(const vector<vector<int> >& grid, int r, int c) {
-    int expectedValue = 1;
-    for (int i = 0; i < r; i++) {
-        for (int j = 0; j < c; j++) {
-            if (grid[i][j] != expectedValue) {
+vector<vector<int> > left_rotation(vector<vector<int> > grid,int x_pos_first,int y_pos_first){
+    swap(grid[x_pos_first][y_pos_first], grid[x_pos_first + 1][y_pos_first]);
+    swap(grid[x_pos_first][y_pos_first], grid[x_pos_first+ 1][y_pos_first+ 1]);
+    swap(grid[x_pos_first][y_pos_first], grid[x_pos_first][y_pos_first+1]);
+
+    return grid;
+}
+
+// 2x2  
+bool isCorrectPosition(vector<vector<int> > grid, int R, int C) {
+    for (int r = 0;r < R-1; r++){
+        for(int c = 0; c < C; c++){
+            if(grid[r][c] != r+1){
                 return false;
             }
-            expectedValue = (expectedValue % r) + 1;
         }
     }
     return true;
 }
 
-bool printGrid(const vector<vector<int> >& grid, int R, int C, int N_grid){
+bool printGrid(vector<vector<int> > grid, int R, int C, int N_grid){
     cout << "Grid " << N_grid << "\n";
     for(int r = 0; r < R; r++){
         for(int c = 0; c < C; c++){
@@ -63,4 +89,94 @@ bool printGrid(const vector<vector<int> >& grid, int R, int C, int N_grid){
     }
     return true;
 }
+
+// Função para rotacionar uma submatriz 2x2
+vector<vector <int> > rotateSubmatrix(const vector<vector <int> >& grid, int row, int col, bool clockwise) {
+    vector<vector <int> > newGrid = grid;
+    if (clockwise) {
+        int temp = newGrid[row][col];
+        newGrid[row][col] = newGrid[row][col + 1];
+        newGrid[row][col + 1] = newGrid[row + 1][col + 1];
+        newGrid[row + 1][col + 1] = newGrid[row + 1][col];
+        newGrid[row + 1][col] = temp;
+    } else {
+        int temp = newGrid[row][col];
+        newGrid[row][col] = newGrid[row + 1][col];
+        newGrid[row + 1][col] = newGrid[row + 1][col + 1];
+        newGrid[row + 1][col + 1] = newGrid[row][col + 1];
+        newGrid[row][col + 1] = temp;
+    }
+    return newGrid;
+}
+
+// Função para gerar todos os estados alcançáveis a partir de um estado
+vector<State> generateNextStates(const State& currentState) {
+    vector<State> nextStates;
+    int rows = currentState.grid.size();
+    int cols = currentState.grid[0].size();
+    
+    for (int i = 0; i < rows - 1; ++i) {
+        for (int j = 0; j < cols - 1; ++j) {
+            // Rotates the submatrix 1 time in the right and opens new recursion 
+            vector<vector <int> > rotatedClockwise = rigth_rotation(currentState.grid, i, j);
+            State rotatedClockwise_State = {rotatedClockwise, currentState.moves + 1};
+            nextStates.push_back(rotatedClockwise_State);
+
+            
+            // Rodar no sentido anti-horário
+            vector<vector <int> > rotatedCounterClockwise = left_rotation(currentState.grid, i, j);
+            State rotatedCounterClockwise_State = {rotatedCounterClockwise, currentState.moves + 1};
+            nextStates.push_back(rotatedCounterClockwise_State);
+        }
+    }
+
+    return nextStates;
+}
+
+
+// Função para resolver o problema
+int solve(const vector<vector <int> >& initialGrid, int R, int C, int M) {
+    queue<State> bfsQueue;
+    unordered_set<string> visited; // Para evitar estados repetidos
+    
+    State initial_state = {initialGrid, 0};
+    bfsQueue.push(initial_state);
+    
+    visited.insert(""); // Marcar o estado inicial como visitado
+
+    while (!bfsQueue.empty()) {
+        State currentState = bfsQueue.front();
+        bfsQueue.pop();
+
+        if (isCorrectPosition(currentState.grid,R,C)) {
+            return currentState.moves;
+        }
+        
+        if(currentState.moves != M){
+            // regista todos os estados possíveis e, caso não tiverem sido visitados ainda
+            // são adicionadaos a bfsqueue para poder visitar. Regista tbm todos os que foram visitados
+            // no unordered_set de forma a não repetir estados caso haja demasiadas rotações e volte ao 
+            // estado.
+            vector<State> nextStates = generateNextStates(currentState);
+            for (const auto& nextState : nextStates) {
+                string nextStateHash = ""; // Hash do estado para evitar repetições
+                for (const auto& row : nextState.grid) {
+                    for (int val : row) {
+                        nextStateHash += to_string(val);
+                    }
+                }
+
+                if (visited.find(nextStateHash) == visited.end()) {
+                    bfsQueue.push(nextState);
+                    visited.insert(nextStateHash);
+                }
+            }
+        }
+        
+    }
+
+    return -1; // Não foi encontrada uma solução
+}
+
+
 
