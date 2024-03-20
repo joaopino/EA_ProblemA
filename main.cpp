@@ -98,21 +98,13 @@ vector< vector <int> > updateMemGrid(vector< vector <int> > memGrid,int r, int c
 }
 
 // Função para gerar todos os estados alcançáveis a partir de um estado
-vector<State> generateNextStates(State currentState) {
+vector<State> generateNextStates(State currentState, int R, int C) {
     vector<State> nextStates;
-    int rows = currentState.grid.size();
-    int cols = currentState.grid[0].size();
-    
-    for (int i = 0; i < rows - 1; ++i) {
-        for (int j = 0; j < cols - 1; ++j) {
-            // Pruning cases in which the moves added to the queue to proccess will be redundant.
-            // It checks if it made a opposite type of rotation on the previous move and also checks if it's the
-            // third time making the same move on the same submatrix.
-            vector <int> current_pivot(i,j);
+    for (int i = 0; i < R - 1; ++i) {
+        for (int j = 0; j < C - 1; ++j) {
 
             // Rotates the submatrix 1 time in the right and opens new recursion 
             vector<vector <int> > rotatedClockwise = rigth_rotation(currentState.grid, i, j);
-            //rotate right equals +1 in memgrid
             State rotatedClockwise_State = {rotatedClockwise, currentState.moves+1};
             nextStates.push_back(rotatedClockwise_State);
             
@@ -127,22 +119,15 @@ vector<State> generateNextStates(State currentState) {
     return nextStates;
 }
 
-bool manhattan_distance(const State& currentState, int R, int C, int M){
+int manhattan_distance(const State& currentState, int R, int C, int M){
+    int distance = 0;
     for (int i = 0; i < R; i++) {
         for (int j = 0; j < C; j++) {
-            int absValuerows = std::abs(i - (currentState.grid[i][j] - 1));
-            absValuerows += currentState.moves;
-            if (absValuerows > M){
-                //cout << "AQUI -> " << absValuerows << " e " << M << "\n";
-                //printGrid(currentState.grid,R,C,404);
-                //cout << "\n";
-                return false;
-            }
+            distance += std::abs(i - (currentState.grid[i][j] - 1));
         }
     }
-    return true;
+    return distance;
 }
-
 
 // Função para resolver o problema
 int solve(const vector<vector <int> >& initialGrid, int R, int C, int M) {
@@ -161,12 +146,12 @@ int solve(const vector<vector <int> >& initialGrid, int R, int C, int M) {
             return currentState.moves;
         }
 
-        else if((currentState.moves != M) & (manhattan_distance(currentState,R,C,M) )){
+        else if(currentState.moves != M){
             // regista todos os estados possíveis e, caso não tiverem sido visitados ainda
             // são adicionadaos a bfsqueue para poder visitar. Regista tbm todos os que foram visitados
             // no unordered_set de forma a não repetir estados caso haja demasiadas rotações e volte ao 
             // estado.
-            vector<State> nextStates = generateNextStates(currentState);
+            vector<State> nextStates = generateNextStates(currentState,R,C);
             for (State nextState : nextStates) {
                 string nextStateHash = ""; // Hash do estado para evitar repetições
                 for (vector<int> row : nextState.grid) {
@@ -175,14 +160,15 @@ int solve(const vector<vector <int> >& initialGrid, int R, int C, int M) {
                     }
                 }
 
-                if (!manhattan_distance(nextState,R,C,M)){
-                    visited.insert(nextStateHash);
+                if (manhattan_distance(nextState,R,C,M) > M){
+                    continue;
 
                 }
                 else if (visited.find(nextStateHash) == visited.end()) {
                     bfsQueue.push(nextState);
                     visited.insert(nextStateHash);
                 }
+                
             }
         }
         
