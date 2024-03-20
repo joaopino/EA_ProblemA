@@ -66,8 +66,7 @@ vector<vector<int> > left_rotation(vector<vector<int> > grid,int x_pos_first,int
 
     return grid;
 }
-
-// 2x2  
+ 
 bool isCorrectPosition(vector<vector<int> > grid, int R, int C) {
     for (int r = 0;r < R-1; r++){
         for(int c = 0; c < C; c++){
@@ -90,47 +89,58 @@ bool printGrid(vector<vector<int> > grid, int R, int C, int N_grid){
     return true;
 }
 
-// Função para rotacionar uma submatriz 2x2
-vector<vector <int> > rotateSubmatrix(const vector<vector <int> >& grid, int row, int col, bool clockwise) {
-    vector<vector <int> > newGrid = grid;
-    if (clockwise) {
-        int temp = newGrid[row][col];
-        newGrid[row][col] = newGrid[row][col + 1];
-        newGrid[row][col + 1] = newGrid[row + 1][col + 1];
-        newGrid[row + 1][col + 1] = newGrid[row + 1][col];
-        newGrid[row + 1][col] = temp;
-    } else {
-        int temp = newGrid[row][col];
-        newGrid[row][col] = newGrid[row + 1][col];
-        newGrid[row + 1][col] = newGrid[row + 1][col + 1];
-        newGrid[row + 1][col + 1] = newGrid[row][col + 1];
-        newGrid[row][col + 1] = temp;
+vector< vector <int> > updateMemGrid(vector< vector <int> > memGrid,int r, int c, int add_value){
+    for (vector <int> row : memGrid) {
+        fill(row.begin(), row.end(), 0);
     }
-    return newGrid;
+    memGrid[r][c] = add_value;
+    return memGrid; 
 }
 
 // Função para gerar todos os estados alcançáveis a partir de um estado
-vector<State> generateNextStates(const State& currentState) {
+vector<State> generateNextStates(State currentState) {
     vector<State> nextStates;
     int rows = currentState.grid.size();
     int cols = currentState.grid[0].size();
     
     for (int i = 0; i < rows - 1; ++i) {
         for (int j = 0; j < cols - 1; ++j) {
+            // Pruning cases in which the moves added to the queue to proccess will be redundant.
+            // It checks if it made a opposite type of rotation on the previous move and also checks if it's the
+            // third time making the same move on the same submatrix.
+            vector <int> current_pivot(i,j);
+
             // Rotates the submatrix 1 time in the right and opens new recursion 
             vector<vector <int> > rotatedClockwise = rigth_rotation(currentState.grid, i, j);
-            State rotatedClockwise_State = {rotatedClockwise, currentState.moves + 1};
+            //rotate right equals +1 in memgrid
+            State rotatedClockwise_State = {rotatedClockwise, currentState.moves+1};
             nextStates.push_back(rotatedClockwise_State);
-
             
             // Rodar no sentido anti-horário
             vector<vector <int> > rotatedCounterClockwise = left_rotation(currentState.grid, i, j);
-            State rotatedCounterClockwise_State = {rotatedCounterClockwise, currentState.moves + 1};
+            State rotatedCounterClockwise_State = {rotatedCounterClockwise,currentState.moves+1};
             nextStates.push_back(rotatedCounterClockwise_State);
+            
         }
     }
 
     return nextStates;
+}
+
+bool manhattan_distance(const State& currentState, int R, int C, int M){
+    for (int i = 0; i < R; i++) {
+        for (int j = 0; j < C; j++) {
+            int absValuerows = std::abs(i - (currentState.grid[i][j] - 1));
+            absValuerows += currentState.moves;
+            if (absValuerows > M){
+                //cout << "AQUI -> " << absValuerows << " e " << M << "\n";
+                //printGrid(currentState.grid,R,C,404);
+                //cout << "\n";
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 
@@ -138,7 +148,6 @@ vector<State> generateNextStates(const State& currentState) {
 int solve(const vector<vector <int> >& initialGrid, int R, int C, int M) {
     queue<State> bfsQueue;
     unordered_set<string> visited; // Para evitar estados repetidos
-    
     State initial_state = {initialGrid, 0};
     bfsQueue.push(initial_state);
     
@@ -151,22 +160,26 @@ int solve(const vector<vector <int> >& initialGrid, int R, int C, int M) {
         if (isCorrectPosition(currentState.grid,R,C)) {
             return currentState.moves;
         }
-        
-        if(currentState.moves != M){
+
+        else if((currentState.moves != M) & (manhattan_distance(currentState,R,C,M) )){
             // regista todos os estados possíveis e, caso não tiverem sido visitados ainda
             // são adicionadaos a bfsqueue para poder visitar. Regista tbm todos os que foram visitados
             // no unordered_set de forma a não repetir estados caso haja demasiadas rotações e volte ao 
             // estado.
             vector<State> nextStates = generateNextStates(currentState);
-            for (const auto& nextState : nextStates) {
+            for (State nextState : nextStates) {
                 string nextStateHash = ""; // Hash do estado para evitar repetições
-                for (const auto& row : nextState.grid) {
+                for (vector<int> row : nextState.grid) {
                     for (int val : row) {
                         nextStateHash += to_string(val);
                     }
                 }
 
-                if (visited.find(nextStateHash) == visited.end()) {
+                if (!manhattan_distance(nextState,R,C,M)){
+                    visited.insert(nextStateHash);
+
+                }
+                else if (visited.find(nextStateHash) == visited.end()) {
                     bfsQueue.push(nextState);
                     visited.insert(nextStateHash);
                 }
