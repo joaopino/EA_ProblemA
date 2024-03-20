@@ -119,15 +119,17 @@ vector<State> generateNextStates(State currentState, int R, int C) {
     return nextStates;
 }
 
-int manhattan_distance(const State& currentState, int R, int C, int M){
+int manhattan_distance(const State& currentState, int R, int C){
     int distance = 0;
     for (int i = 0; i < R; i++) {
         for (int j = 0; j < C; j++) {
-            distance += std::abs(i - (currentState.grid[i][j] - 1));
+            if (abs(currentState.grid[i][j] - i) <= 1 ) continue;
+            distance += abs((currentState.grid[i][j] - i)) - 1;
         }
     }
     return distance;
 }
+
 
 // Função para resolver o problema
 int solve(const vector<vector <int> >& initialGrid, int R, int C, int M) {
@@ -160,7 +162,7 @@ int solve(const vector<vector <int> >& initialGrid, int R, int C, int M) {
                     }
                 }
 
-                if (manhattan_distance(nextState,R,C,M) > M){
+                if (manhattan_distance(nextState,R,C) > M-nextState.moves){
                     continue;
 
                 }
